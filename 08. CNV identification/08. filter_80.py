@@ -3,28 +3,28 @@ import os
 from Bio import SeqIO
 from collections import defaultdict
 
-# 定义路径
+# Define paths
 protein_fasta = "/ref/arahy.Tifrunner.gnm2.ann2.PVFB.protein.faa"
 input_dir = "/path/blastp_chr_same_uniq"
 output_dir = "/path/blastp_chr_same_uniq_80_80"
 
-# 创建输出目录
+# Create output directory
 os.makedirs(output_dir, exist_ok=True)
 
 def load_protein_lengths(fasta_file):
-    """读取蛋白质FASTA文件并返回{protein_id: length}字典"""
+    """Read protein FASTA file and return {protein_id: length} dictionary"""
     protein_lengths = {}
     with open(fasta_file, "r") as f:
         for record in SeqIO.parse(f, "fasta"):
-            protein_id = record.id  # 保留完整ID
+            protein_id = record.id  # Keep full ID
             protein_lengths[protein_id] = len(record.seq)
     return protein_lengths
 
 def process_blastp_file(input_path, output_path, protein_lengths):
-    """处理单个BLASTP结果文件"""
-    # 存储所有记录
+    """Process a single BLASTP result file"""
+    # Store all records
     all_records = []
-    # 存储Tifrunner ID到记录的映射
+    # Store Tifrunner ID to records mapping
     tifrunner_to_records = defaultdict(list)
     
     with open(input_path, "r") as infile:
@@ -50,44 +50,44 @@ def process_blastp_file(input_path, output_path, protein_lengths):
             all_records.append(record)
             tifrunner_to_records[subject_id].append(record)
     
-    # 确定哪些Tifrunner ID有多个MP ID映射
+    # Identify Tifrunner IDs with multiple MP ID mappings
     multi_mapped = {tid for tid, recs in tifrunner_to_records.items() if len(recs) > 1}
     
-    # 筛选记录
+    # Filter records
     filtered_records = []
     for record in all_records:
         subject_id = record['subject_id']
         
-        # 如果是1:1映射，直接保留
+        # If 1:1 mapping, keep directly
         if subject_id not in multi_mapped:
             filtered_records.append(record)
             continue
             
-        # 如果是多对一映射，应用过滤条件
+        # If many-to-one mapping, apply filtering conditions
         identity = record['identity']
         alignment_length = record['alignment_length']
         protein_length = record['protein_length']
         
-        # 检查条件1：identity > 80
+        # Condition 1: identity > 80
         if identity <= 80:
             continue
             
-        # 检查条件2：alignment_length > 80%的蛋白质长度
+        # Condition 2: alignment_length > 80% of protein length
         if protein_length > 0 and alignment_length >= 0.8 * protein_length:
             filtered_records.append(record)
     
-    # 写入结果
+    # Write results
     with open(output_path, "w") as outfile:
         for record in filtered_records:
             outfile.write(record['line'])
 
 def main():
-    # 第一步：加载蛋白质长度信息
+    # Step 1: Load protein length information
     print("Loading protein lengths...")
     protein_lengths = load_protein_lengths(protein_fasta)
     print(f"Loaded lengths for {len(protein_lengths)} proteins")
     
-    # 第二步：处理每个BLASTP结果文件
+    # Step 2: Process each BLASTP result file
     for filename in os.listdir(input_dir):
         if filename.endswith(".txt"):
             input_path = os.path.join(input_dir, filename)
